@@ -1,0 +1,115 @@
+services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: rates-postgres
+    environment:
+      POSTGRES_DB: rates_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./app/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: rates-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+  minio:
+    image: minio/minio:latest
+    container_name: rates-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  kafka-producer:
+    build: .
+    container_name: kafka-producer
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BROKER: kafka:29092
+      KAFKA_TOPIC: btc-rates
+    command: python3 producer/producer.py
+
+  kafka-postgres-consumer:
+    build: .
+    container_name: kafka-postgres-consumer
+    depends_on:
+      - kafka
+      - postgres
+    environment:
+      KAFKA_BROKER: kafka:29092
+      KAFKA_TOPIC: btc-rates
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: rates_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    command: python3 consumer/consumer_postgres.py
+
+  kafka-datalake-consumer:
+    build: .
+    container_name: kafka-datalake-consumer
+    depends_on:
+      - kafka
+      - minio
+    environment:
+      KAFKA_BROKER: kafka:29092
+      KAFKA_TOPIC: btc-rates
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: btc-rates
+    command: python3 consumer/consumer_minio.py
+
+volumes:
+  postgres-data:
+  minio-data:
