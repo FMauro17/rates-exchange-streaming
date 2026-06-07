@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS btc_rates (
+    id SERIAL PRIMARY KEY,
+    data JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
