@@ -8,7 +8,7 @@ from confluent_kafka import Producer
 
 KAFKA_BROKER = os.environ.get('KAFKA_BROKER', 'localhost:9092')
 KAFKA_TOPIC = os.environ.get('KAFKA_TOPIC', 'btc_rates')
-API_URL = "https://api.coindesk.com/v1/bpi/currentprice/USD.json"
+API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
 INTERVAL = 10 
 
 
@@ -16,7 +16,7 @@ def obtener_precio_btc():
     respuesta = requests.get(API_URL, timeout=10)
     respuesta.raise_for_status()
     datos = respuesta.json()
-    precio = datos['bpi']['USD']['rate_float']
+    precio = datos['bitcoin']['usd']
     return precio
 
 def publicar_mensaje(producer, precio):
