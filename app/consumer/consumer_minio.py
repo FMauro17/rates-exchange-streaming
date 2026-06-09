@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 import boto3
 from botocore.exceptions import ClientError
+from confluent_kafka import Consumer, KafkaError
 
 KAFKA_BROKER = os.environ.get('KAFKA_BROKER', 'localhost:9092')
 KAFKA_TOPIC = os.environ.get('KAFKA_TOPIC', 'btc_rates')
@@ -15,10 +16,10 @@ MINIO_BUCKET = os.environ.get('MINIO_BUCKET', 'btc-rates')
 def crear_cliente_minio():
     return boto3.client(
         's3',
-        endopint_url=MINIO_ENDPOINT,
+        endpoint_url=MINIO_ENDPOINT,
         aws_access_key_id=MINIO_ACCESS_KEY,
         aws_secret_access_key=MINIO_SECRET_KEY,
-        region_name='us-east-1'
+        region_name='us-east-1',
         config=boto3.session.Config(signature_version='s3v4')
     )
 
